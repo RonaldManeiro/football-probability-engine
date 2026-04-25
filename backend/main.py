@@ -48,6 +48,12 @@ class PrediccionResponse(BaseModel):
     prob_victoria_visitante: str
     top_marcadores: list  # <--- Agregamos este campo para que FastAPI permita enviar la lista
 
+    prob_over_25: str
+    prob_under_25: str
+    prob_btts_si: str
+    prob_btts_no: str
+    distribucion_local: list
+    distribucion_visitante: list
 # --- RUTAS DE REFINAMIENTO ---
 
 # 4. Listar todos los equipos (Para menús desplegables)
@@ -128,6 +134,31 @@ def predecir_resultado(partido: PartidoRequest):
         p_victoria_local = np.sum(np.tril(matriz_prob, -1))
         p_victoria_vis = np.sum(np.triu(matriz_prob, 1))
 
+        p_empate = np.sum(np.diag(matriz_prob))
+        p_victoria_local = np.sum(np.tril(matriz_prob, -1))
+        p_victoria_vis = np.sum(np.triu(matriz_prob, 1))
+
+        # --- NUEVO: Cálculo de Mercados Derivados ---
+        p_under_25 = 0
+        p_over_25 = 0
+        p_btts_si = 0
+
+        for i in range(max_goles + 1):
+            for j in range(max_goles + 1):
+                prob = matriz_prob[i, j]
+
+                # Mercado Over/Under 2.5 Goles
+                if i + j > 2.5:
+                    p_over_25 += prob
+                else:
+                    p_under_25 += prob
+
+                # Mercado Ambos Equipos Anotan (BTTS)
+                if i > 0 and j > 0:
+                    p_btts_si += prob
+
+        p_btts_no = 1 - p_btts_si
+
         # --- NUEVO: Cálculo de marcadores exactos ---
         resultados_exactos = []
         for i in range(max_goles + 1):
@@ -152,7 +183,13 @@ def predecir_resultado(partido: PartidoRequest):
             "prob_victoria_local": f"{p_victoria_local * 100:.2f}%",
             "prob_empate": f"{p_empate * 100:.2f}%",
             "prob_victoria_visitante": f"{p_victoria_vis * 100:.2f}%",
-            "top_marcadores": top_resultados
+            "top_marcadores": top_resultados,
+            "prob_over_25": f"{p_over_25 * 100:.2f}%",
+            "prob_under_25": f"{p_under_25 * 100:.2f}%",
+            "prob_btts_si": f"{p_btts_si * 100:.2f}%",
+            "prob_btts_no": f"{p_btts_no * 100:.2f}%",
+            "distribucion_local": [round(p * 100, 2) for p in prob_local_arr],
+            "distribucion_visitante": [round(p * 100, 2) for p in prob_vis_arr]
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
