@@ -4,12 +4,22 @@ from sqlalchemy import create_engine
 from scipy.stats import poisson
 import numpy as np
 import pandas as pd
+from fastapi.middleware.cors import CORSMiddleware
 
 # 1. Configuración de la API
 app = FastAPI(
     title="Football Probability Engine API",
     description="Motor estadístico en tiempo real con PostgreSQL y Poisson.",
     version="1.1.0"
+)
+
+# Agregar middleware para permitir CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # 2. Conexión a PostgreSQL
@@ -36,8 +46,9 @@ class PrediccionResponse(BaseModel):
     prob_victoria_local: str
     prob_empate: str
     prob_victoria_visitante: str
+    top_marcadores: list  # <--- Agregamos este campo para que FastAPI permita enviar la lista
 
-# --- NUEVAS RUTAS DE REFINAMIENTO ---
+# --- RUTAS DE REFINAMIENTO ---
 
 # 4. Listar todos los equipos (Para menús desplegables)
 
@@ -117,6 +128,22 @@ def predecir_resultado(partido: PartidoRequest):
         p_victoria_local = np.sum(np.tril(matriz_prob, -1))
         p_victoria_vis = np.sum(np.triu(matriz_prob, 1))
 
+        # --- NUEVO: Cálculo de marcadores exactos ---
+        resultados_exactos = []
+        for i in range(max_goles + 1):
+            for j in range(max_goles + 1):
+                prob = matriz_prob[i, j]
+                resultados_exactos.append({
+                    "marcador": f"{i}-{j}",
+                    "probabilidad": f"{prob * 100:.2f}%",
+                    "valor_num": float(prob)
+                })
+
+        # Ordenamos la lista de mayor a menor probabilidad y nos quedamos con los 5 primeros
+        top_resultados = sorted(
+            resultados_exactos, key=lambda x: x['valor_num'], reverse=True)[:5]
+
+        # Devolvemos la respuesta incluyendo la nueva clave
         return {
             "local": partido.equipo_local,
             "visitante": partido.equipo_visitante,
@@ -124,7 +151,8 @@ def predecir_resultado(partido: PartidoRequest):
             "goles_esperados_visitante": round(lam_vis, 2),
             "prob_victoria_local": f"{p_victoria_local * 100:.2f}%",
             "prob_empate": f"{p_empate * 100:.2f}%",
-            "prob_victoria_visitante": f"{p_victoria_vis * 100:.2f}%"
+            "prob_victoria_visitante": f"{p_victoria_vis * 100:.2f}%",
+            "top_marcadores": top_resultados
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
