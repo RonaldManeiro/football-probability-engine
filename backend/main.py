@@ -17,7 +17,8 @@ app = FastAPI(
 # Agregar middleware para permitir CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # Ponemos la URL exacta de tu Vercel (SIN la barra / al final)
+    allow_origins=["https://premier-league-predictor-rho.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
