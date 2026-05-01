@@ -5,6 +5,7 @@ from scipy.stats import poisson
 import numpy as np
 import pandas as pd
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 # 1. Configuración de la API
 app = FastAPI(
@@ -23,7 +24,8 @@ app.add_middleware(
 )
 
 # 2. Conexión a PostgreSQL
-DB_URL = "postgresql://postgres:Maneiro44.@localhost:5432/football_predict_db"
+DB_URL = os.getenv(
+    "DATABASE_URL", "postgresql://postgres:Maneiro44.@localhost:5432/football_predict_db")
 engine = create_engine(DB_URL)
 
 # Promedios globales fijos de la liga
