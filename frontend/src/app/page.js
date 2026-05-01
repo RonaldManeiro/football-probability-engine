@@ -23,7 +23,8 @@ export default function Home() {
   const [kellySeleccion, setKellySeleccion] = useState("local");
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/equipos")
+    // CAMBIO 1: Obtener equipos desde Render
+    fetch("https://premier-league-api-98bw.onrender.com/equipos")
       .then((res) => res.json())
       .then((data) => setEquipos(data.equipos))
       .catch((error) => console.error("Error:", error));
@@ -44,16 +45,18 @@ export default function Home() {
     setKellyCuota("");
 
     try {
-      const resPred = await fetch("http://127.0.0.1:8000/predecir", {
+      // CAMBIO 2: Enviar predicción a Render
+      const resPred = await fetch("https://premier-league-api-98bw.onrender.com/predecir", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ equipo_local: local, equipo_visitante: visitante }),
       });
       const dataPred = await resPred.json();
 
+      // CAMBIO 3 y 4: Obtener historiales desde Render
       const [resHistLocal, resHistVis] = await Promise.all([
-        fetch(`http://127.0.0.1:8000/historial/${local}`),
-        fetch(`http://127.0.0.1:8000/historial/${visitante}`)
+        fetch(`https://premier-league-api-98bw.onrender.com/historial/${local}`),
+        fetch(`https://premier-league-api-98bw.onrender.com/historial/${visitante}`)
       ]);
       
       const dataHL = await resHistLocal.json();
