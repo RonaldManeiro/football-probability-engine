@@ -30,6 +30,21 @@ engine = create_engine(DB_URL)
 AVG_HOME_LEAGUE = 1.53
 AVG_AWAY_LEAGUE = 1.15
 
+# PARÁMETRO Y FUNCIÓN DIXON-COLES ---
+RHO = -0.06
+
+
+def ajuste_dixon_coles(x, y, lam_l, lam_v, rho):
+    if x == 0 and y == 0:
+        return 1 - (lam_l * lam_v * rho)
+    elif x == 1 and y == 0:
+        return 1 + (lam_l * rho)
+    elif x == 0 and y == 1:
+        return 1 + (lam_v * rho)
+    elif x == 1 and y == 1:
+        return 1 - rho
+    return 1
+
 # 3. Modelos de Datos (Pydantic)
 
 
@@ -130,9 +145,14 @@ def predecir_resultado(partido: PartidoRequest):
         prob_vis_arr = [poisson.pmf(j, lam_vis) for j in range(max_goles + 1)]
         matriz_prob = np.outer(prob_local_arr, prob_vis_arr)
 
-        p_empate = np.sum(np.diag(matriz_prob))
-        p_victoria_local = np.sum(np.tril(matriz_prob, -1))
-        p_victoria_vis = np.sum(np.triu(matriz_prob, 1))
+# --- NUEVO: Aplicar corrección de Dixon-Coles a los marcadores bajos ---
+        for x in range(2):
+            for y in range(2):
+                ajuste = ajuste_dixon_coles(x, y, lam_local, lam_vis, RHO)
+                matriz_prob[x, y] *= ajuste
+
+# Normalizar la matriz (para que la suma siga siendo exactamente 1)
+        matriz_prob /= np.sum(matriz_prob)
 
         p_empate = np.sum(np.diag(matriz_prob))
         p_victoria_local = np.sum(np.tril(matriz_prob, -1))

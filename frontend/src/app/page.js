@@ -71,31 +71,38 @@ export default function Home() {
     setCargando(false);
   };
 
-  // --- INTERPRETACIONES POTENCIADAS ---
+  // --- INTERPRETACIONES PROFUNDAS Y PERSONALIZADAS ---
 
   const generarInterpretacionPrincipal = () => {
     if (!resultado) return "";
     const pLocal = parseFloat(resultado.prob_victoria_local);
     const pVis = parseFloat(resultado.prob_victoria_visitante);
     const pEmpate = parseFloat(resultado.prob_empate);
+    const lamL = parseFloat(resultado.goles_esperados_local);
+    const lamV = parseFloat(resultado.goles_esperados_visitante);
 
-    if (pLocal > 55) return `Fuerte favoritismo para ${resultado.local}. La distribución bivariada sugiere que el mercado local está infravalorado si la cuota supera ${(100 / pLocal).toFixed(2)}.`;
-    if (pVis > 55) return `Predominancia del visitante (${resultado.visitante}). Existe una ventaja estadística clara; se recomienda buscar cuotas mayores a ${(100 / pVis).toFixed(2)}.`;
-    if (pEmpate > 30) return `Alta probabilidad de tablas. La convergencia de los Lambdas indica un equilibrio táctico donde el empate es el resultado de mayor estabilidad estadística.`;
-    return `Partido de alta varianza. No hay un sesgo significativo hacia ningún bando; se recomienda analizar mercados secundarios o esperar confirmación de alineaciones.`;
+    if (pLocal > 60) return `Dominio absoluto proyectado para ${resultado.local}. Con una generación esperada de ${lamL} goles (λ), el modelo ajustado por Dixon-Coles (ρ = -0.06) le otorga un robusto ${pLocal}% de probabilidad de victoria, sugiriendo valor real en cuotas superiores a ${(100/pLocal).toFixed(2)}.`;
+    if (pVis > 60) return `El visitante (${resultado.visitante}) presenta una ventaja paramétrica contundente. Apoyado en un λ de ${lamV}, el modelo de Dixon-Coles estima un ${pVis}% de probabilidad de triunfo foráneo. El valor (Edge) reside matemáticamente en cuotas desde ${(100/pVis).toFixed(2)}.`;
+    if (pEmpate > 28 && Math.abs(lamL - lamV) < 0.5) return `Escenario de altísima fricción táctica. La fuerte convergencia de los valores λ y la corrección de dependencia negativa elevan la probabilidad de tablas al ${pEmpate}%, indicando que el mercado de empate directo o dobles oportunidades concentra la mayor estabilidad estadística.`;
+    if (pLocal > pVis) return `Existe un ligero sesgo a favor de ${resultado.local} (${pLocal}%), pero la cercanía paramétrica (λ: ${lamL} vs ${lamV}) exige suma cautela. No se recomienda una exposición alta de capital en el mercado de ganador directo (1X2) debido a la varianza.`;
+    return `El encuentro se inclina levemente hacia la estructura de ${resultado.visitante} (${pVis}%), sin embargo, la desviación estándar esperada es considerable. Se sugiere migrar el análisis de inversión hacia mercados de goles totales en lugar del resultado final.`;
   };
 
   const generarInterpretacionGrafico = () => {
     if (!resultado) return "";
-    const goalLocal = resultado.distribucion_local.indexOf(Math.max(...resultado.distribucion_local));
-    const goalVis = resultado.distribucion_visitante.indexOf(Math.max(...resultado.distribucion_visitante));
+    const lMax = resultado.distribucion_local.indexOf(Math.max(...resultado.distribucion_local));
+    const vMax = resultado.distribucion_visitante.indexOf(Math.max(...resultado.distribucion_visitante));
+    const probLMax = Math.max(...resultado.distribucion_local).toFixed(1);
+    const probVMax = Math.max(...resultado.distribucion_visitante).toFixed(1);
 
-    let desc = `Análisis de Densidad: El pico de probabilidad (moda) para ${resultado.local} se ubica en los ${goalLocal} goles, mientras que para ${resultado.visitante} es de ${goalVis} goles. `;
+    let desc = `Análisis Estocástico de Densidad: La Función de Masa de Probabilidad (PMF) revela que la "Moda" para ${resultado.local} se concentra en ${lMax} goles (con un ${probLMax}% de certeza puntual), mientras que ${resultado.visitante} maximiza su probabilidad en ${vMax} goles (${probVMax}%). `;
     
-    if (Math.abs(goalLocal - goalVis) >= 2) {
-      desc += "La separación de las áreas bajo la curva confirma una disparidad técnica notable en la eficiencia goleadora esperada.";
+    if (lMax > vMax + 1) {
+      desc += `La asimetría notable de la curva azul hacia la derecha evidencia una superioridad ofensiva estructural del local, arrastrando el centro de gravedad del partido a su favor.`;
+    } else if (vMax > lMax + 1) {
+      desc += `La traslación de la curva roja hacia la derecha proyecta un claro dominio visitante, superando holgadamente el peso estadístico de la localía rival.`;
     } else {
-      desc += "El solapamiento masivo de las áreas de densidad sugiere que cualquier desviación mínima en la ejecución podría alterar el resultado final.";
+      desc += `El alto grado de solapamiento y simetría entre ambas áreas de distribución confirma un escenario de paridad estricta. Pequeños eventos aleatorios definirán la ruptura de la inercia del empate.`;
     }
     return desc;
   };
@@ -103,7 +110,11 @@ export default function Home() {
   const generarInterpretacionMarcadores = () => {
     if (!resultado || !resultado.top_marcadores) return "";
     const top1 = resultado.top_marcadores[0];
-    return `La matriz de Poisson identifica al ${top1.marcador} como el marcador de máxima verosimilitud (${top1.probabilidad}). Este resultado actúa como el centro de gravedad de la distribución bivariada para este encuentro.`;
+    const top2 = resultado.top_marcadores[1];
+    const top3 = resultado.top_marcadores[2];
+    const acumulada = (parseFloat(top1.probabilidad) + parseFloat(top2.probabilidad) + parseFloat(top3.probabilidad)).toFixed(2);
+
+    return `Matriz de Máxima Verosimilitud: El marcador ancla del encuentro es el ${top1.marcador} (${top1.probabilidad}), seguido estrechamente por el ${top2.marcador} y el ${top3.marcador}. En conjunto, estos 3 escenarios absorben el ${acumulada}% de la probabilidad total del partido. Esta concentración facilita la estructuración de coberturas exactas (estrategia Dutching) frente a las casas de apuestas.`;
   };
 
   const generarInterpretacionAlternativos = () => {
@@ -111,13 +122,21 @@ export default function Home() {
     const pOver = parseFloat(resultado.prob_over_25);
     const pBtts = parseFloat(resultado.prob_btts_si);
 
-    let conclusion = pOver > 55 ? "Inercia hacia un partido de alta anotación (Over 2.5). " : "Tendencia a un juego táctico y defensivo (Under 2.5). ";
-    conclusion += pBtts > 55 ? "La correlación de ataques sugiere que ambos equipos vulnerarán la defensa rival." : "La probabilidad indica que al menos uno de los guardametas mantendrá su arco en cero.";
+    let conclusion = `Análisis de Volatilidad: `;
+    if (pOver >= 55) conclusion += `Con un rotundo ${pOver}% de probabilidad asignada al Over 2.5, el modelo anticipa una alta producción ofensiva y ruptura temprana de líneas. `;
+    else if (pOver <= 45) conclusion += `El ${(100-pOver).toFixed(2)}% anclado al Under 2.5 proyecta un bloqueo táctico severo y predecible escasez de espacios. `;
+    else conclusion += `El mercado de totales está fracturado de forma simétrica, sugiriendo impredecibilidad y picos de varianza en el ritmo de juego. `;
+
+    if (pBtts >= 55) conclusion += `Adicionalmente, la fuerte correlación en las colas de Poisson (${pBtts}% BTTS) casi garantiza que ambas escuadras vulnerarán la red rival.`;
+    else if (pBtts <= 45) conclusion += `Simultáneamente, la baja tasa de BTTS (${pBtts}%) indica un alto valor en pronosticar un escenario de 'Clean Sheet' (arco en cero) para el equipo dominante.`;
+    else conclusion += `La probabilidad de que ambos anoten se asienta en un umbral neutro (${pBtts}%), dependiendo fuertemente de la eficacia de los primeros 30 minutos.`;
+
     return conclusion;
   };
 
   const generarInterpretacionHistorial = () => {
-    if (!historialLocal.length || !historialVis.length) return "Faltan datos.";
+    if (!historialLocal.length || !historialVis.length) return "Faltan datos en la matriz PostgreSQL para calcular la inercia.";
+    
     const getStats = (h, e) => {
       let a = 0, r = 0;
       h.forEach(p => {
@@ -126,13 +145,23 @@ export default function Home() {
       });
       return { a, r };
     };
+    
     const sL = getStats(historialLocal, resultado.local);
     const sV = getStats(historialVis, resultado.visitante);
+    const difLocal = sL.a - sL.r;
+    const difVis = sV.a - sV.r;
     
-    return `${resultado.local} llega con ${sL.a} goles a favor y ${sL.r} en contra en sus últimos 5 juegos. ${resultado.visitante} registra ${sV.a} anotados y ${sV.r} recibidos. Esta inercia real valida los parámetros λ del modelo.`;
+    let conclusion = `Validación Empírica (Últimos 5 encuentros): ${resultado.local} registra un diferencial de ${difLocal > 0 ? '+'+difLocal : difLocal} goles (${sL.a}F / ${sL.r}C). Por su parte, ${resultado.visitante} sostiene un diferencial de ${difVis > 0 ? '+'+difVis : difVis} (${sV.a}F / ${sV.r}C). `;
+
+    if (difLocal > 0 && difVis <= 0) conclusion += `Esta inercia real ratifica la ventaja paramétrica del local frente a las fisuras recientes del visitante.`;
+    else if (difVis > 0 && difLocal <= 0) conclusion += `El visitante llega con un volumen de juego mucho más sólido, absorbiendo estadísticamente el peso de jugar fuera de casa.`;
+    else if (difLocal > 0 && difVis > 0) conclusion += `El choque de dos rachas de eficiencia positiva respalda empíricamente las altas expectativas de generación de peligro (posible Over).`;
+    else conclusion += `Ambos conjuntos arrastran hundimientos defensivos o sequías goleadoras recientes que el modelo base de Poisson ha internalizado en sus cálculos.`;
+
+    return conclusion;
   };
 
-  // --- GESTIÓN DE RIESGO REPARADA ---
+  // --- GESTIÓN DE RIESGO OPTIMIZADA Y DETALLADA ---
   const calcularRiesgo = () => {
     if (!resultado || !kellyCuota || isNaN(kellyCuota) || kellyCuota <= 1) return null;
     let probString = "0";
@@ -143,15 +172,26 @@ export default function Home() {
     const p = parseFloat(probString) / 100;
     const cuota = parseFloat(kellyCuota);
     const ev = (p * cuota) - 1;
+    
+    // Criterio de Kelly estándar: f* = (p * (b) - q) / b
     let kelly = ((p * (cuota - 1)) - (1 - p)) / (cuota - 1);
     if (kelly < 0) kelly = 0;
+
+    let recomendacion = "";
+    if (ev > 0) {
+      if (kelly > 0.1) {
+        recomendacion = `✅ Alerta de ineficiencia de mercado: El modelo detecta un altísimo Valor Positivo. Aunque Kelly sugiere ${(kelly*100).toFixed(2)}%, para gestión de ruina actuarial se aconseja aplicar 'Kelly Fraccional' (1/4 o 1/2 de la cuota sugerida).`;
+      } else {
+        recomendacion = `✅ Valor Positivo (Edge) detectado. La esperanza matemática es favorable a largo plazo para tu cartera. Nivel de inversión sugerido altamente calibrado y prudente.`;
+      }
+    } else {
+      recomendacion = `❌ Esperanza Matemática Negativa (Edge en contra). Apostar a esta cuota representa una filtración de capital a largo plazo debido al 'overround' de la casa de apuestas.`;
+    }
 
     return {
       ev: (ev * 100).toFixed(2),
       kelly: (kelly * 100).toFixed(2),
-      recomendacion: ev > 0 
-        ? "✅ Valor Positivo Detectado. El mercado está subestimando la probabilidad real."
-        : "❌ Esperanza Matemática Negativa. No se recomienda invertir en este mercado."
+      recomendacion: recomendacion
     };
   };
 
@@ -292,7 +332,7 @@ export default function Home() {
                     </div>
 
                     <div className={`rounded-xl p-8 border ${theme.veredictoBg}`}>
-                      <h3 className="text-lg font-bold mb-3 flex items-center gap-2">🤖 Veredicto Principal</h3>
+                      <h3 className="text-lg font-bold mb-3 flex items-center gap-2">🤖 Veredicto Paramétrico</h3>
                       <p className="leading-relaxed text-lg">{generarInterpretacionPrincipal()}</p>
                     </div>
 
@@ -315,7 +355,7 @@ export default function Home() {
                       {riesgoStats && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-500/20">
                           <div><p className="text-xs uppercase font-bold opacity-60">Valor Esperado (EV)</p><p className={`text-3xl font-black ${parseFloat(riesgoStats.ev) > 0 ? "text-green-500" : "text-red-500"}`}>{parseFloat(riesgoStats.ev) > 0 ? "+" : ""}{riesgoStats.ev}%</p></div>
-                          <div><p className="text-xs uppercase font-bold opacity-60">Inversión Sugerida</p><p className="text-3xl font-black text-blue-500">{riesgoStats.kelly}% <span className="text-sm font-medium opacity-50">del Bank</span></p></div>
+                          <div><p className="text-xs uppercase font-bold opacity-60">Inversión Sugerida</p><p className="text-3xl font-black text-blue-500">{riesgoStats.kelly}% <span className="text-sm font-medium opacity-50">del Bankroll</span></p></div>
                           <div className="md:col-span-2"><p className={`text-sm font-semibold p-3 rounded-lg ${parseFloat(riesgoStats.ev) > 0 ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`}>{riesgoStats.recomendacion}</p></div>
                         </div>
                       )}
